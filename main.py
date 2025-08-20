@@ -4,7 +4,7 @@ Direct vLLM approach with FastAPI WebSocket
 """
 
 import os
-from functools import lru_cache
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from vllm import LLM, SamplingParams
 import uvicorn
@@ -15,30 +15,24 @@ MODEL = os.getenv("MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8001"))
 
-# Initialize FastAPI app
-app = FastAPI(title="vLLM WebSocket Server", version="1.0.0")
 
-@lru_cache()
-def get_llm():
-    """Initialize vLLM model (cached singleton)"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize model on startup, cleanup on shutdown"""
     print(f"Loading model: {MODEL}")
-    llm = LLM(
+    app.state.llm = LLM(
         model=MODEL,
         trust_remote_code=True,
         max_model_len=2048,
         gpu_memory_utilization=0.9,
     )
     print("Model loaded successfully")
-    return llm
+    yield
+    # Cleanup (if needed)
 
-# Alternative lifespan approach:
-# from contextlib import asynccontextmanager
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     app.state.llm = LLM(model=MODEL, trust_remote_code=True, max_model_len=2048, gpu_memory_utilization=0.9)
-#     yield
-# app = FastAPI(lifespan=lifespan)
-# Then use: llm = websocket.app.state.llm
+
+# Initialize FastAPI app with lifespan
+app = FastAPI(title="vLLM WebSocket Server", version="1.0.0", lifespan=lifespan)
 
 
 @app.websocket("/ws")
@@ -46,8 +40,8 @@ async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for chat completions"""
     await websocket.accept()
     print(f"WebSocket client connected: {websocket.client}")
-    
-    llm = get_llm()  # Get cached model instance
+
+    llm = websocket.app.state.llm  # Get model from app state
 
     try:
         while True:

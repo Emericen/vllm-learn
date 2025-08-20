@@ -21,34 +21,14 @@ COPY requirements.txt .
 # Install Python dependencies using uv
 RUN uv pip install --system -r requirements.txt
 
-# Install additional dependencies for OpenAI client
-RUN uv pip install --system openai
+# Additional dependencies already in requirements.txt
 
 # Copy application files
 COPY main.py .
 
 
-# Expose ports for vLLM HTTP API and WebSocket
-EXPOSE 8000 8001
+# Expose port for WebSocket
+EXPOSE 8001
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-echo "Starting vLLM server..."\n\
-vllm serve ${MODEL} \\\n\
-    --host ${HOST} \\\n\
-    --port ${PORT} \\\n\
-    --served-model-name ${MODEL} \\\n\
-    --trust-remote-code &\n\
-\n\
-echo "Waiting for vLLM server to start..."\n\
-while ! curl -f http://localhost:${PORT}/health > /dev/null 2>&1; do\n\
-    sleep 2\n\
-done\n\
-\n\
-echo "vLLM server is ready, starting WebSocket proxy..."\n\
-python main.py\n\
-' > /app/start.sh && chmod +x /app/start.sh
-
-# Run the startup script
-CMD ["/app/start.sh"]
+# Run the Python application directly
+CMD ["python", "main.py"]

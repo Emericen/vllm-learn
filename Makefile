@@ -12,7 +12,7 @@ build:
 	MODEL=$(MODEL) VLLM_TAG=$(VLLM_TAG) HOST_HTTP_PORT=$(HOST_HTTP_PORT) HOST_WS_PORT=$(HOST_WS_PORT) \
 	docker compose build
 
-up:
+run:
 	@echo "Starting vLLM server with WebSocket proxy..."
 	@echo "HTTP API available at: http://localhost:$(HOST_HTTP_PORT)/v1"
 	@echo "WebSocket API available at: ws://localhost:$(HOST_WS_PORT)"
@@ -20,10 +20,8 @@ up:
 	docker compose up -d
 	@echo "Services started. Use 'make logs' to see output."
 
-# Legacy alias for 'up'
-run: up
 
-down:
+stop:
 	@echo "Stopping services..."
 	docker compose down
 
@@ -39,9 +37,9 @@ logs-proxy:
 	@echo "Following logs for WebSocket proxy..."
 	docker compose logs -f websocket-proxy
 
-restart: down up
+restart: stop up
 
-clean: down
+clean: stop
 	@echo "Cleaning up..."
 	docker compose down --rmi local --volumes --remove-orphans
 	@echo "Cleanup complete."

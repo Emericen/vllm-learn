@@ -2,7 +2,7 @@ services:
   vllm:
     image: vllm/vllm-openai:${VLLM_TAG:-latest}
     command: >
-      serve --model ${MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}
+      --model ${MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}
       --host 0.0.0.0
       --port 8000
       --served-model-name ${MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}

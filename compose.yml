@@ -1,0 +1,39 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:${VLLM_TAG:-latest}
+    command: >
+      serve --model ${MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}
+      --host 0.0.0.0
+      --port 8000
+      --served-model-name ${MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}
+      --trust-remote-code
+    ports:
+      - "${HOST_HTTP_PORT:-8000}:8000"
+    gpus: all
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    shm_size: 16g
+    ipc: host
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/v1/models"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  websocket-proxy:
+    build: .
+    environment:
+      - VLLM_BASE_URL=http://vllm:8000/v1
+      - MODEL=${MODEL:-Qwen/Qwen2.5-VL-3B-Instruct}
+    ports:
+      - "${HOST_WS_PORT:-8001}:8001"
+    depends_on:
+      vllm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8001/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped

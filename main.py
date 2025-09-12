@@ -1,77 +1,82 @@
 #!/usr/bin/env python3
 """
-Simple approach: Start standard vLLM server and add WebSocket client
+FastAPI WebSocket proxy for vLLM:
+- Connects to external vLLM service via HTTP API
+- Provides WebSocket interface for streaming completions
 """
 
 import os
-import asyncio
 import json
-import websockets
-from openai import OpenAI
 
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import uvicorn
+from openai import AsyncOpenAI
 
+# Configuration via env vars
 MODEL = os.getenv("MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://vllm:8000/v1")
+WS_HOST = os.getenv("WS_HOST", "0.0.0.0")
+WS_PORT = int(os.getenv("WS_PORT", "8001"))
 
-async def websocket_client():
-    """WebSocket client that connects to HTTP API"""
+app = FastAPI()
 
-    client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
 
-    async def handle_websocket(websocket):
-        print(f"WebSocket client connected: {websocket.remote_address}")
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
 
-        try:
-            async for message in websocket:
-                data = json.loads(message)
-                # print(f"Received message: {data}")
 
-                # Forward to HTTP API
-                try:
-                    response = client.chat.completions.create(
-                        model=data.get("model", "Qwen/Qwen2.5-VL-3B-Instruct"),
-                        messages=data.get("messages", []),
-                        max_tokens=data.get("max_tokens", 100),
-                        stream=True,
-                    )
+@app.websocket("/")
+async def ws_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    client = AsyncOpenAI(base_url=VLLM_BASE_URL, api_key="EMPTY")
 
-                    # Stream response back
-                    for chunk in response:
-                        if chunk.choices[0].delta.content:
-                            await websocket.send(
-                                json.dumps(
-                                    {
-                                        "type": "token",
-                                        "content": chunk.choices[0].delta.content,
-                                    }
-                                )
-                            )
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            data = json.loads(raw)
 
-                    await websocket.send(json.dumps({"type": "complete"}))
+            stream = None
+            try:
+                stream = await client.chat.completions.create(
+                    model=data.get("model", MODEL),
+                    messages=data.get("messages", []),
+                    max_tokens=data.get("max_tokens", 100),
+                    stream=True,
+                )
 
-                except Exception as e:
-                    await websocket.send(
-                        json.dumps({"type": "error", "message": str(e)})
-                    )
+                async for chunk in stream:
+                    try:
+                        content = chunk.choices[0].delta.content  # type: ignore[attr-defined]
+                    except Exception:
+                        content = None
+                    if content:
+                        await websocket.send_text(
+                            json.dumps({"type": "token", "content": content})
+                        )
 
-        except websockets.exceptions.ConnectionClosed:
-            print("WebSocket client disconnected")
+                await websocket.send_text(json.dumps({"type": "complete"}))
 
-    # Start WebSocket server on different port
-    print("Starting WebSocket server on port 8001...")
-    server = await websockets.serve(
-        handle_websocket, 
-        "0.0.0.0", 
-        8001,
-        max_size=10 * 1024 * 1024  # 10MB limit for large images
-    )
-    print("WebSocket server running on ws://localhost:8001")
-    await server.wait_closed()
+            except Exception as e:
+                # Clean up stream if it exists
+                if stream:
+                    try:
+                        await stream.aclose()
+                    except:
+                        pass
+                
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": str(e)})
+                )
+
+    except WebSocketDisconnect:
+        # Clean up stream on disconnect
+        if 'stream' in locals() and stream:
+            try:
+                await stream.aclose()
+            except:
+                pass
 
 
 if __name__ == "__main__":
-    print("This is a WebSocket proxy for vLLM HTTP API")
-    print("1. Start vLLM server: vllm serve Qwen/Qwen2.5-VL-7B-Instruct")
-    print("2. Run this script to add WebSocket support")
-    print("3. Connect to ws://localhost:8001")
-
-    asyncio.run(websocket_client())
+    uvicorn.run("main:app", host=WS_HOST, port=WS_PORT, log_level="info")

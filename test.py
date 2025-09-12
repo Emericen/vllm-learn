@@ -2,15 +2,21 @@
 """Simple test for vLLM inference server"""
 import base64
 import time
+import os
 import asyncio
 import json
 import websockets
 from openai import OpenAI
 
 
+MODEL = os.getenv("MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
+HTTP_PORT = int(os.getenv("PORT", "8000"))
+WS_PORT = int(os.getenv("WS_PORT", "8001"))
+
+
 def test_http_api():
     # Initialize client
-    client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
+    client = OpenAI(base_url=f"http://localhost:{HTTP_PORT}/v1", api_key="EMPTY")
 
     # Read and encode image
     with open("data/test-img.png", "rb") as f:
@@ -18,7 +24,7 @@ def test_http_api():
 
     # Test vision chat
     stream = client.chat.completions.create(
-        model="Qwen/Qwen2.5-VL-3B-Instruct",
+        model=MODEL,
         messages=[
             {
                 "role": "user",
@@ -52,7 +58,7 @@ def test_http_api():
 
 async def test_websocket():
     """Test WebSocket functionality"""
-    uri = "ws://localhost:8001"
+    uri = f"ws://localhost:{WS_PORT}"
 
     try:
         print("\n=== WebSocket Test ===")

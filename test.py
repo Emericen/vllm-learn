@@ -9,14 +9,14 @@ import websockets
 from openai import OpenAI
 
 
-MODEL = os.getenv("MODEL", "Qwen/Qwen2.5-VL-3B-Instruct")
+MODEL = os.getenv("MODEL", "Qwen/Qwen2.5-VL-7B-Instruct")
 HTTP_PORT = int(os.getenv("PORT", "8000"))
 WS_PORT = int(os.getenv("WS_PORT", "8001"))
 
 
 def test_http_api():
     # Initialize client
-    client = OpenAI(base_url=f"http://localhost:{HTTP_PORT}/v1", api_key="EMPTY")
+    client = OpenAI(base_url=f"http://192.222.55.38:{HTTP_PORT}/v1", api_key="EMPTY")
 
     # Read and encode image
     with open("data/test-img.png", "rb") as f:
@@ -58,7 +58,7 @@ def test_http_api():
 
 async def test_websocket():
     """Test WebSocket functionality"""
-    uri = f"ws://localhost:{WS_PORT}"
+    uri = f"ws://192.222.55.38:8001"
 
     try:
         print("\n=== WebSocket Test ===")
@@ -118,8 +118,8 @@ async def test_websocket():
 
 
 def main():
-    print("=== HTTP API Test ===")
-    test_http_api()
+    # print("=== HTTP API Test ===")
+    # test_http_api()
 
     print("\nStarting WebSocket test...")
     asyncio.run(test_websocket())

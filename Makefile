@@ -37,7 +37,7 @@ logs-proxy:
 	@echo "Following logs for WebSocket proxy..."
 	docker compose logs -f websocket-proxy
 
-restart: stop up
+restart: stop run
 
 clean: stop
 	@echo "Cleaning up..."

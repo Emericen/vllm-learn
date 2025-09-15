@@ -31,9 +31,4 @@ services:
     depends_on:
       vllm:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8001/healthz"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
     restart: unless-stopped

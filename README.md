@@ -10,7 +10,7 @@ make run MODEL=Qwen/Qwen2.5-VL-7B-Instruct       # Custom model
 make logs                                          # All service logs
 make logs-vllm                                     # vLLM only
 make logs-proxy                                    # WebSocket proxy only
-make down                                          # Stop services
+make stop                                          # Stop services
 ```
 
 ## Services
